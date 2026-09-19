@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { matchCommands } from './commands.js';
 import type { SlashCommand } from './commands.js';
@@ -23,16 +23,29 @@ export const PromptInput = memo(function PromptInput({
   const [cursor, setCursor] = useState(0);
   const [selCursor, setSelCursor] = useState(0);
 
+  // Используем ref, чтобы в useInput не было stale closures (проблема с быстрой печатью)
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+
   const suggestions = matchCommands(value);
   const open = suggestions.length > 0;
   const active = Math.min(selCursor, Math.max(0, suggestions.length - 1));
 
-  // Сброс подсказки при смене текста
+  // Сброс выбора при смене текста
   useEffect(() => { setSelCursor(0); }, [value]);
-  useEffect(() => { setCursor(chars(value).length); }, [value]);
+
+  // Сбрасываем курсор в начало только если поле полностью очистили (например после отправки)
+  useEffect(() => { 
+    if (value === '') setCursor(0); 
+  }, [value]);
 
   useInput((input, key) => {
     if (disabled) return;
+
+    const currentVal = valueRef.current;
+    const currentCursor = cursorRef.current;
 
     // Навигация по подсказкам
     if (open && key.upArrow) {
@@ -43,42 +56,48 @@ export const PromptInput = memo(function PromptInput({
       setSelCursor(Math.min(suggestions.length - 1, active + 1));
       return;
     }
+    
     // Tab → автозаполнение
     if (open && key.tab && !key.shift) {
       const chosen = suggestions[active];
       if (chosen) {
         const next = `/${chosen.name} `;
         onChange(next);
+        setCursor(chars(next).length);
       }
       return;
     }
+    
     // Enter с открытыми подсказками → выбрать и выполнить
     if (open && key.return) {
       const chosen = suggestions[active];
       if (chosen) {
         onSubmit(`/${chosen.name}`);
         onChange('');
+        setCursor(0);
       }
       return;
     }
+    
     // Обычный Enter
     if (key.return) {
-      onSubmit(value);
+      onSubmit(currentVal);
       onChange('');
+      setCursor(0);
       return;
     }
 
     // Навигация курсора
-    const vc = chars(value);
-    const at = clamp(cursor, 0, vc.length);
+    const vc = chars(currentVal);
+    const at = clamp(currentCursor, 0, vc.length);
 
     if (key.leftArrow) { setCursor(Math.max(0, at - 1)); return; }
     if (key.rightArrow) { setCursor(Math.min(vc.length, at + 1)); return; }
+    
     if (key.backspace) {
       if (at > 0) {
         vc.splice(at - 1, 1);
-        const next = vc.join('');
-        onChange(next);
+        onChange(vc.join(''));
         setCursor(at - 1);
       }
       return;
@@ -91,7 +110,7 @@ export const PromptInput = memo(function PromptInput({
       return;
     }
 
-    // Игнорим управляющие
+    // Игнорим неиспользуемые управляющие
     if (key.tab || key.upArrow || key.downArrow || key.escape) return;
     if (input === '' || key.ctrl || key.meta) return;
 
