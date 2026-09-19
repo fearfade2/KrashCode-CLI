@@ -1,7 +1,9 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { readFile, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { resolveInside } from '../utils/safepath.js';
+
+import { readBounded } from '../utils/bounded-read.js';
 
 const MAX_LINES = 2000;
 const MAX_CHARS = 200_000;
@@ -12,7 +14,7 @@ export function createReadTool(cwd: string) {
     description:
       'Read a text file from the workspace. Returns numbered lines. ' +
       'Use offset and limit to page through large files.',
-    parameters: z.object({
+    inputSchema: z.object({
       path: z.string().describe('File path, relative to the workspace root'),
       offset: z.number().int().min(1).optional().describe('1-based line to start from'),
       limit: z.number().int().min(1).optional().describe('Maximum number of lines to return'),
@@ -28,7 +30,7 @@ export function createReadTool(cwd: string) {
         return `${path} is ${(info.size / 1e6).toFixed(1)} MB; limit is ${MAX_FILE_BYTES / 1e6} MB. Use grep instead.`;
       }
 
-      const buffer = await readFile(safe.path);
+      const buffer = await readBounded(safe.path, MAX_FILE_BYTES);
       if (buffer.subarray(0, 4096).includes(0)) {
         return `${path} looks like a binary file and cannot be read as text.`;
       }
@@ -46,8 +48,18 @@ export function createReadTool(cwd: string) {
       const rendered: string[] = [];
       let chars = 0;
       for (const [i, line] of window.entries()) {
-        const numbered = `${start + i + 1}\t${line}`;
-        if (chars + numbered.length > MAX_CHARS) break;
+        let numbered = `${start + i + 1}\t${line}`;
+        if (chars + numbered.length > MAX_CHARS) {
+          // Первую строку окна отдаём всегда, при необходимости усекая её саму —
+          // иначе строка длиннее MAX_CHARS давала бы пустой вывод и подсказку с тем
+          // же offset, из-за чего чтение зацикливалось бы (файл нельзя было прочитать).
+          if (rendered.length === 0) {
+            const budget = Math.max(0, MAX_CHARS - `${start + i + 1}\t`.length);
+            numbered = `${start + i + 1}\t${line.slice(0, budget)} … [строка усечена: ${line.length} символов]`;
+            rendered.push(numbered);
+          }
+          break;
+        }
         chars += numbered.length + 1;
         rendered.push(numbered);
       }

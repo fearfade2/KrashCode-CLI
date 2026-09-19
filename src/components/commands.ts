@@ -5,13 +5,17 @@ export interface SlashCommand {
 }
 
 export const COMMANDS: SlashCommand[] = [
-  { name: 'model', args: '<name>', description: 'Сменить модель' },
-  { name: 'mode', args: '<normal|accept|plan>', description: 'Режим работы' },
+  { name: 'provider', description: 'Провайдер, модель и ключ (в т.ч. свой)' },
+  { name: 'model', args: '[name]', description: 'Сменить модель' },
+  { name: 'mode', args: '[normal|accept|plan]', description: 'Режим работы' },
+  { name: 'effort', args: '[auto|low|medium|high|xhigh|max]', description: 'Усилия рассуждения' },
   { name: 'compact', description: 'Сжать старый контекст' },
-  { name: 'sessions', description: 'Список сессий' },
+  { name: 'memory', args: '[set|clear]', description: 'Заметки проекта' },
+  { name: 'sessions', description: 'Возобновить сессию' },
+  { name: 'bypass', description: 'Вкл/выкл подтверждения' },
   { name: 'config', description: 'Показать конфиг' },
   { name: 'usage', description: 'Токены и стоимость' },
-  { name: 'clear', description: 'Очистить чат' },
+  { name: 'clear', description: 'Новая сессия' },
   { name: 'help', description: 'Показать помощь' },
   { name: 'exit', description: 'Выйти' },
 ];

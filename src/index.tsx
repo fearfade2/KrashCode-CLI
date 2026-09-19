@@ -2,12 +2,19 @@ import React from 'react';
 import { render } from 'ink';
 import { Command } from 'commander';
 import App from './components/App.js';
-import { loadConfig, saveConfig, resolveApiKey, getConfigDir } from './core/config.js';
+import { loadConfig, saveConfig, resolveApiKey, getConfigDir, setApiKey } from './core/config.js';
 import { listSessions } from './core/session.js';
+import type { ProviderKind } from './core/types.js';
+import { killAllJobs } from './tools/jobs.js';
 import dotenv from 'dotenv';
 import { resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 
-dotenv.config();
+dotenv.config({ quiet: true });
+
+// Подстраховка: если процесс завершится любым путём, гасим фоновые команды,
+// чтобы detached dev-серверы/watcher'ы не оставались сиротами.
+process.on('exit', () => killAllJobs());
 
 const VERSION = '1.0.0';
 
@@ -23,12 +30,23 @@ program
   .description('Start interactive TUI chat')
   .option('--cwd <path>', 'Use a different working directory')
   .option('--model <ref>', 'Start with this model')
-  .action((options: { cwd?: string; model?: string }) => {
+  .option('-c, --continue', 'Resume the most recent session for this directory')
+  .option('-r, --resume <id>', 'Resume a session by id')
+  .action(async (options: { cwd?: string; model?: string; continue?: boolean; resume?: string }) => {
     let cwd = options.cwd;
     if (cwd) {
       try { cwd = resolve(cwd); } catch { /* keep as-is */ }
     }
-    render(<App cwd={cwd} modelOverride={options.model} />);
+    const workDir = cwd ?? process.cwd();
+
+    let resumeId = options.resume;
+    if (!resumeId && options.continue) {
+      const entries = await listSessions();
+      resumeId = entries.find((s) => s.cwd === workDir)?.id ?? entries[0]?.id;
+    }
+
+    // exitOnCtrlC=false: Ctrl-C обрабатываем сами в App (сохранить сессию, погасить джобы).
+    render(<App cwd={cwd} modelOverride={options.model} resumeId={resumeId} />, { exitOnCtrlC: false });
   });
 
 program
@@ -68,7 +86,36 @@ program
     if (options.baseUrl) cfg.baseUrl = options.baseUrl;
     if (options.keyEnv) cfg.keyEnv = options.keyEnv;
     await saveConfig(cfg);
+
+    // Если ключ не берётся из env, спрашиваем его скрытым вводом и храним в auth.json (0600).
+    if (!options.keyEnv) {
+      const key = await promptHidden(`API key for ${provider} (Enter — пропустить): `);
+      if (key.trim()) {
+        await setApiKey(provider as ProviderKind, key.trim());
+        console.log('✓ API key saved to auth.json (0600).');
+      }
+    }
     console.log(`✓ Provider set to ${provider}${options.model ? `, model: ${options.model}` : ''}`);
+  });
+
+program
+  .command('key')
+  .description('Set or update the API key for a provider')
+  .argument('<provider>', 'openai | anthropic | google | openrouter | custom')
+  .action(async (provider: string) => {
+    const valid = ['openai', 'anthropic', 'google', 'openrouter', 'custom'] as const;
+    if (!valid.includes(provider as (typeof valid)[number])) {
+      console.error(`Unknown provider "${provider}". Use: ${valid.join(', ')}`);
+      process.exitCode = 1;
+      return;
+    }
+    const key = await promptHidden(`API key for ${provider}: `);
+    if (!key.trim()) {
+      console.log('No key entered — nothing changed.');
+      return;
+    }
+    await setApiKey(provider as ProviderKind, key.trim());
+    console.log('✓ API key saved to auth.json (0600).');
   });
 
 program
@@ -88,6 +135,28 @@ program
       if (s.title) console.log(`  ${s.title}`);
     }
   });
+
+// Скрытый ввод: не эхоим набранный ключ в терминал.
+function promptHidden(prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const stdout = process.stdout as NodeJS.WriteStream & { _writeToOutput?: (s: string) => void };
+    let first = true;
+    stdout._writeToOutput = (str: string) => {
+      if (first) {
+        stdout.write(str);
+        first = false;
+      }
+      // после вывода приглашения глушим эхо символов
+    };
+    rl.question(prompt, (answer) => {
+      stdout._writeToOutput = undefined;
+      rl.close();
+      process.stdout.write('\n');
+      resolve(answer);
+    });
+  });
+}
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err));

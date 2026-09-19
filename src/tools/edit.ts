@@ -1,7 +1,9 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { resolveInside } from '../utils/safepath.js';
+
+import { readBounded } from '../utils/bounded-read.js';
 
 const MAX_FILE_BYTES = 5_000_000;
 
@@ -22,23 +24,27 @@ export function createEditTool(cwd: string) {
     description:
       'Replace an exact string in a file. oldString must match the file byte for byte, ' +
       'including indentation, and must be unique unless replaceAll is true.',
-    parameters: z.object({
+    inputSchema: z.object({
       path: z.string().describe('File path, relative to the workspace root'),
-      oldString: z.string().max(MAX_FILE_BYTES).describe('Text to replace (must match exactly)'),
+      oldString: z.string().min(1).max(MAX_FILE_BYTES).describe('Text to replace (must match exactly)'),
       newString: z.string().max(MAX_FILE_BYTES).describe('Replacement text'),
       replaceAll: z.boolean().optional().describe('Replace every occurrence'),
     }),
     execute: async ({ path, oldString, newString, replaceAll = false }) => {
+      if (!oldString) return 'oldString must not be empty.';
+      if (Buffer.byteLength(oldString) > MAX_FILE_BYTES || Buffer.byteLength(newString) > MAX_FILE_BYTES) {
+        return `Edit input exceeds the ${MAX_FILE_BYTES} byte limit.`;
+      }
       const safe = resolveInside(cwd, path);
       if (!safe.ok) return safe.reason;
 
       let before: string;
       try {
-        const buf = await readFile(safe.path);
+        const buf = await readBounded(safe.path, MAX_FILE_BYTES);
         if (buf.subarray(0, 8192).includes(0)) return `Cannot edit ${path}: binary file.`;
         before = buf.toString('utf8');
-      } catch {
-        return `Cannot read ${path}.`;
+      } catch (error) {
+        return `Cannot read ${path}: ${(error as Error).message}`;
       }
 
       const count = countOccurrences(before, oldString);
@@ -48,6 +54,10 @@ export function createEditTool(cwd: string) {
       if (count > 1 && !replaceAll) {
         return `oldString matches ${count} places in ${path}. Add more context or set replaceAll.`;
       }
+
+      const resultBytes = Buffer.byteLength(before) + (replaceAll ? count : 1) *
+        (Buffer.byteLength(newString) - Buffer.byteLength(oldString));
+      if (resultBytes > MAX_FILE_BYTES) return `Result exceeds the ${MAX_FILE_BYTES} byte limit.`;
 
       const after = replaceAll
         ? before.split(oldString).join(newString)

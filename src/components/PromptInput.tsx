@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, memo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { matchCommands } from './commands.js';
 import type { SlashCommand } from './commands.js';
+import { T, G } from '../ui/theme.js';
 
 const WINDOW = 6;
 
@@ -23,11 +24,16 @@ export const PromptInput = memo(function PromptInput({
   const [cursor, setCursor] = useState(0);
   const [selCursor, setSelCursor] = useState(0);
 
-  // Используем ref, чтобы в useInput не было stale closures (проблема с быстрой печатью)
+  // Используем ref, чтобы в useInput не было stale closures (проблема с быстрой печатью).
+  // Ink 7 вызывает обработчик через useEffectEvent, чей замкнутый снимок отстаёт от
+  // закоммиченного рендера — поэтому производные значения рендера (suggestions/open/active)
+  // внутри обработчика читаются устаревшими. Живой источник правды — только ref'ы.
   const valueRef = useRef(value);
   valueRef.current = value;
   const cursorRef = useRef(cursor);
   cursorRef.current = cursor;
+  const selCursorRef = useRef(selCursor);
+  selCursorRef.current = selCursor;
 
   const suggestions = matchCommands(value);
   const open = suggestions.length > 0;
@@ -46,20 +52,24 @@ export const PromptInput = memo(function PromptInput({
 
     const currentVal = valueRef.current;
     const currentCursor = cursorRef.current;
+    // Пересчитываем состояние меню из живых ref'ов, а не из замыкания рендера.
+    const liveSuggestions = matchCommands(currentVal);
+    const liveOpen = liveSuggestions.length > 0;
+    const liveActive = Math.min(selCursorRef.current, Math.max(0, liveSuggestions.length - 1));
 
     // Навигация по подсказкам
-    if (open && key.upArrow) {
-      setSelCursor(Math.max(0, active - 1));
+    if (liveOpen && key.upArrow) {
+      setSelCursor(Math.max(0, liveActive - 1));
       return;
     }
-    if (open && key.downArrow) {
-      setSelCursor(Math.min(suggestions.length - 1, active + 1));
+    if (liveOpen && key.downArrow) {
+      setSelCursor(Math.min(liveSuggestions.length - 1, liveActive + 1));
       return;
     }
-    
+
     // Tab → автозаполнение
-    if (open && key.tab && !key.shift) {
-      const chosen = suggestions[active];
+    if (liveOpen && key.tab && !key.shift) {
+      const chosen = liveSuggestions[liveActive];
       if (chosen) {
         const next = `/${chosen.name} `;
         onChange(next);
@@ -67,10 +77,10 @@ export const PromptInput = memo(function PromptInput({
       }
       return;
     }
-    
+
     // Enter с открытыми подсказками → выбрать и выполнить
-    if (open && key.return) {
-      const chosen = suggestions[active];
+    if (liveOpen && key.return) {
+      const chosen = liveSuggestions[liveActive];
       if (chosen) {
         onSubmit(`/${chosen.name}`);
         onChange('');
@@ -133,11 +143,11 @@ export const PromptInput = memo(function PromptInput({
       {/* Поле ввода */}
       <Box
         borderStyle="round"
-        borderColor={disabled ? 'gray' : 'cyan'}
+        borderColor={disabled ? T.dim : T.accent}
         borderDimColor={disabled}
         paddingX={1}
       >
-        <Text color={disabled ? 'gray' : 'cyan'}>› </Text>
+        <Text color={disabled ? T.dim : T.accent}>{G.prompt} </Text>
         <Box flexGrow={1} flexShrink={1} minWidth={0}>
           {vc.length === 0 ? (
             <Text>
@@ -162,10 +172,10 @@ export const PromptInput = memo(function PromptInput({
             return (
               <Text
                 key={cmd.name}
-                color={selected ? 'cyan' : undefined}
+                color={selected ? T.accent : undefined}
                 dimColor={!selected}
               >
-                {selected ? '❯ ' : '  '}/{cmd.name}
+                {selected ? `${G.caret} ` : '  '}/{cmd.name}
                 {cmd.args ? ` ${cmd.args}` : ''}
                 <Text dimColor> — {cmd.description}</Text>
               </Text>
@@ -174,7 +184,7 @@ export const PromptInput = memo(function PromptInput({
           {suggestions.length > visible.length && (
             <Text dimColor>  ещё {suggestions.length - visible.length}...</Text>
           )}
-          <Text dimColor>  Tab — вставить · Enter — выполнить</Text>
+          <Text dimColor>  Tab — вставить {G.sep} Enter — выполнить</Text>
         </Box>
       )}
     </Box>

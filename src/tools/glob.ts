@@ -12,7 +12,7 @@ export function createGlobTool(cwd: string) {
     description:
       'Find files by glob pattern, most recently modified first. ' +
       'Hidden files, node_modules, .git and dist are skipped.',
-    parameters: z.object({
+    inputSchema: z.object({
       pattern: z.string().describe('Glob pattern, e.g. **/*.ts'),
       path: z.string().optional().describe('Directory to search in, relative to workspace root'),
     }),

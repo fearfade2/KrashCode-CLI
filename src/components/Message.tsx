@@ -1,12 +1,15 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import ToolCall from './ToolCall.js';
+import { Markdown } from '../ui/markdown.js';
+import { T, G } from '../ui/theme.js';
 
 export interface ChatMsg {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  toolCalls?: { name: string; args: Record<string, unknown>; result?: string; isError?: boolean }[];
+  reasoning?: string;
+  toolCalls?: { id: string; name: string; args: Record<string, unknown>; result?: string; isError?: boolean }[];
 }
 
 interface MessageProps {
@@ -19,20 +22,25 @@ export default function Message({ msg }: MessageProps) {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box gap={1}>
-        <Text color={isUser ? 'green' : 'magenta'} bold>
-          {isUser ? '❯' : '⚡'}
+        <Text color={isUser ? T.user : T.accent} bold>
+          {G.bar}
         </Text>
-        <Text color={isUser ? 'green' : 'white'} bold>
+        <Text color={isUser ? T.user : T.accent} bold>
           {isUser ? 'you' : 'krashcode'}
         </Text>
       </Box>
-      {msg.content && (
+      {msg.reasoning && (
         <Box marginLeft={2}>
-          <Text wrap="wrap">{msg.content}</Text>
+          <Text dimColor italic wrap="wrap">think {G.sep} {msg.reasoning}</Text>
         </Box>
       )}
-      {msg.toolCalls?.map((tc, i) => (
-        <ToolCall key={i} name={tc.name} args={tc.args} result={tc.result} isError={tc.isError} />
+      {msg.content && (
+        <Box marginLeft={2}>
+          {isUser ? <Text wrap="wrap">{msg.content}</Text> : <Markdown>{msg.content}</Markdown>}
+        </Box>
+      )}
+      {msg.toolCalls?.map((tc) => (
+        <ToolCall key={tc.id} name={tc.name} args={tc.args} result={tc.result} isError={tc.isError} />
       ))}
     </Box>
   );
