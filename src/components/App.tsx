@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import TextInput from 'ink-text-input';
+import { PromptInput } from './PromptInput.js';
+import { closestCommand } from './commands.js';
 import Message from './Message.js';
 import type { ChatMsg } from './Message.js';
 import StatusBar from './StatusBar.js';
@@ -53,24 +54,71 @@ export default function App({ cwd, modelOverride }: AppProps) {
     const text = value.trim();
     if (!text || busy) return;
 
-    // /exit
-    if (text === '/exit' || text === '/quit') {
-      exit();
-      return;
-    }
-    // /clear
-    if (text === '/clear') {
-      setMessages([]);
-      historyRef.current = [];
-      setTokenCount(0);
-      setInput('');
-      return;
-    }
-    // /model
-    if (text.startsWith('/model ')) {
-      setModel(text.slice(7).trim());
-      setInput('');
-      return;
+    // Slash-команды
+    if (text.startsWith('/')) {
+      const parts = text.slice(1).split(' ');
+      const cmd = parts[0]!.toLowerCase();
+      const arg = parts.slice(1).join(' ').trim();
+
+      switch (cmd) {
+        case 'exit':
+        case 'quit':
+          exit();
+          return;
+        case 'clear':
+          setMessages([]);
+          historyRef.current = [];
+          setTokenCount(0);
+          setInput('');
+          return;
+        case 'model':
+          if (arg) {
+            setModel(arg);
+            setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content: `Модель изменена на ${arg}` }]);
+          } else {
+            setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content: `Текущая модель: ${model || 'не задана'}. Используй /model <name>` }]);
+          }
+          setInput('');
+          return;
+        case 'help':
+          setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content:
+            '📖 Команды:\n' +
+            '  /model <name>  — сменить модель\n' +
+            '  /mode <mode>   — режим: normal | accept | plan\n' +
+            '  /config        — показать конфиг\n' +
+            '  /usage         — токены и стоимость\n' +
+            '  /clear         — очистить чат\n' +
+            '  /compact       — сжать контекст\n' +
+            '  /sessions      — список сессий\n' +
+            '  /exit          — выйти\n' +
+            '\n  Esc — прервать запрос'
+          }]);
+          setInput('');
+          return;
+        case 'config':
+          setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content:
+            `⚙ Конфигурация:\n  Модель: ${model || 'не задана'}\n  Режим: ${mode}\n  CWD: ${workDir}\n  Токены: ${tokenCount}`
+          }]);
+          setInput('');
+          return;
+        case 'usage':
+          setMessages((prev) => [...prev, { id: uid(), role: 'assistant', content:
+            `📊 Использование:\n  Токены: ${tokenCount.toLocaleString()}\n  Сообщений: ${messages.length}`
+          }]);
+          setInput('');
+          return;
+        default: {
+          // Неизвестная команда — предлагаем ближайшую
+          const closest = closestCommand(cmd);
+          const hint = closest ? ` Может быть /${closest.name}?` : '';
+          setMessages((prev) => [...prev, {
+            id: uid(), role: 'assistant',
+            content: `Неизвестная команда /${cmd}.${hint} Введите /help для списка.`
+          }]);
+          setInput('');
+          return;
+        }
+      }
     }
 
     // Добавляем сообщение пользователя
@@ -217,13 +265,13 @@ export default function App({ cwd, modelOverride }: AppProps) {
       />
 
       {/* Input */}
-      <Box paddingX={1} paddingY={0}>
-        <Text color="green" bold>❯ </Text>
-        <TextInput
+      <Box paddingX={1}>
+        <PromptInput
           value={input}
           onChange={setInput}
           onSubmit={handleSubmit}
-          placeholder={busy ? 'thinking...' : 'Message KrashCode... (/help for commands)'}
+          disabled={busy}
+          placeholder={busy ? 'thinking...' : 'Message KrashCode... (/help)'}
         />
       </Box>
     </Box>
