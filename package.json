@@ -1,0 +1,35 @@
+{
+  "name": "krashcode",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "krashcode": "dist/index.js"
+  },
+  "scripts": {
+    "start": "tsx src/index.tsx",
+    "build": "tsup src/index.tsx --format esm --clean"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.57",
+    "@ai-sdk/google": "^4.0.75",
+    "@ai-sdk/openai": "^4.0.70",
+    "ai": "^7.0.106",
+    "commander": "^15.0.0",
+    "dotenv": "^18.0.0",
+    "ink": "^7.1.1",
+    "react": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
