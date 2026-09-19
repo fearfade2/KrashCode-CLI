@@ -1,28 +1,50 @@
 {
   "name": "krashcode",
   "version": "1.0.0",
-  "description": "",
+  "description": "Terminal coding agent with AI-powered tools",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
   "bin": {
     "krashcode": "dist/index.js"
   },
-  "scripts": {
-    "start": "tsx src/index.tsx",
-    "build": "tsup src/index.tsx --format esm --clean"
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
   },
-  "keywords": [],
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsup",
+    "start": "tsx src/index.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "cli",
+    "coding-agent",
+    "ai",
+    "terminal",
+    "openai",
+    "anthropic",
+    "google",
+    "mcp"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.57",
     "@ai-sdk/google": "^4.0.75",
     "@ai-sdk/openai": "^4.0.70",
     "ai": "^7.0.106",
+    "chalk": "^6.0.0",
     "commander": "^15.0.0",
     "dotenv": "^18.0.0",
+    "fast-glob": "^3.3.3",
     "ink": "^7.1.1",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
     "react": "^19.3.0",
+    "string-width": "^8.2.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {
