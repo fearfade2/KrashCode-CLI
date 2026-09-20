@@ -57,9 +57,15 @@ export async function loadConfig(): Promise<KrashConfig> {
   return retry.success ? retry.data : defaultConfig();
 }
 
-export async function saveConfig(config: KrashConfig): Promise<void> {
-  await ensureConfigDir();
-  await writeJsonAtomic(CONFIG_FILE, config);
+let configWrites: Promise<void> = Promise.resolve();
+export function saveConfig(config: KrashConfig): Promise<void> {
+  const snapshot = configSchema.parse(config);
+  const write = configWrites.catch(() => undefined).then(async () => {
+    await ensureConfigDir();
+    await writeJsonAtomic(CONFIG_FILE, snapshot);
+  });
+  configWrites = write;
+  return write;
 }
 
 // ── Ключи хранятся отдельно, с правами 0600 ──────────────────────────────────

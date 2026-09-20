@@ -79,6 +79,13 @@ export const effortSchema = z.enum(['auto', 'low', 'medium', 'high', 'xhigh', 'm
 export type Effort = z.infer<typeof effortSchema>;
 export const EFFORTS: Effort[] = ['auto', 'low', 'medium', 'high', 'xhigh', 'max'];
 
+export const THEME_IDS = ['system', 'ember', 'ocean', 'forest', 'violet', 'paper', 'mono'] as const;
+export const themeSchema = z.enum(THEME_IDS);
+export type ThemeId = z.infer<typeof themeSchema>;
+export const MOTION_MODES = ['full', 'reduced', 'off'] as const;
+export const motionSchema = z.enum(MOTION_MODES);
+export type MotionMode = z.infer<typeof motionSchema>;
+
 export const configSchema = z.object({
   version: z.literal(1).default(1),
   provider: providerKindSchema.default('openai'),
@@ -96,6 +103,8 @@ export const configSchema = z.object({
   maxContextTokens: z.number().int().positive().max(10_000_000).default(128_000),
   autoCompact: z.boolean().default(true),
   language: langSchema.default('ru'),
+  theme: themeSchema.default('system'),
+  motion: motionSchema.default('full'),
   mode: agentModeSchema.default('normal'),
   autoDiagnostics: z.boolean().default(true),
   // Точечные переопределения разрешений по имени инструмента.

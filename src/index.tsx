@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from 'ink';
 import { Command } from 'commander';
+import { configureTerminalColors } from './ui/colors.js';
 import App from './components/App.js';
 import { loadConfig, saveConfig, resolveApiKey, getConfigDir, setApiKey } from './core/config.js';
 import { listSessions } from './core/session.js';
@@ -11,6 +12,7 @@ import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
 dotenv.config({ quiet: true });
+configureTerminalColors();
 
 // Подстраховка: если процесс завершится любым путём, гасим фоновые команды,
 // чтобы detached dev-серверы/watcher'ы не оставались сиротами.
@@ -58,6 +60,8 @@ program
     console.log(`Config dir:  ${dir}`);
     console.log(`Provider:    ${cfg.provider}`);
     console.log(`Model:       ${cfg.model}`);
+    console.log(`Theme:       ${cfg.theme}`);
+    console.log(`Animations:  ${cfg.motion}`);
     console.log(`Max tokens:  ${cfg.maxTokens}`);
     console.log(`Base URL:    ${cfg.baseUrl ?? '(default)'}`);
     console.log(`API key:     ${resolveApiKey(cfg) ? '***set***' : '(not set)'}`);
