@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import ToolCall from './ToolCall.js';
 import { Markdown } from '../ui/markdown.js';
-import { T, G } from '../ui/theme.js';
+import { useTheme, G } from '../ui/theme.js';
 
 export interface ChatMsg {
   id: string;
@@ -17,6 +17,7 @@ interface MessageProps {
 }
 
 export default function Message({ msg }: MessageProps) {
+  const T = useTheme();
   const isUser = msg.role === 'user';
 
   return (
@@ -26,17 +27,17 @@ export default function Message({ msg }: MessageProps) {
           {G.bar}
         </Text>
         <Text color={isUser ? T.user : T.accent} bold>
-          {isUser ? 'you' : 'krashcode'}
+          {isUser ? 'Вы' : 'KrashCode'}
         </Text>
       </Box>
       {msg.reasoning && (
         <Box marginLeft={2}>
-          <Text dimColor italic wrap="wrap">think {G.sep} {msg.reasoning}</Text>
+          <Text color={T.dim} italic wrap="wrap">Размышления {G.sep} {msg.reasoning}</Text>
         </Box>
       )}
       {msg.content && (
         <Box marginLeft={2}>
-          {isUser ? <Text wrap="wrap">{msg.content}</Text> : <Markdown>{msg.content}</Markdown>}
+          {isUser ? <Text color={T.text} wrap="wrap">{msg.content}</Text> : <Markdown>{msg.content}</Markdown>}
         </Box>
       )}
       {msg.toolCalls?.map((tc) => (

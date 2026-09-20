@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { useTheme } from './theme.js';
 
 // Лёгкий рендер Markdown в Ink-компоненты. Поддерживает заголовки, списки,
 // блоки кода, цитаты, горизонтальные линии и инлайн (жирный/курсив/код/ссылки).
@@ -69,16 +70,17 @@ export function parseInline(text: string): Segment[] {
 }
 
 function Inline({ text }: { text: string }): React.ReactElement {
+  const T = useTheme();
   const segments = parseInline(text);
   return (
-    <Text wrap="wrap">
+    <Text wrap="wrap" color={T.text}>
       {segments.map((seg, idx) => (
         <Text
           key={idx}
           bold={seg.bold}
           italic={seg.italic}
-          color={seg.code ? 'yellow' : undefined}
-          backgroundColor={seg.code ? 'gray' : undefined}
+          color={seg.code ? T.accent : undefined}
+         
         >
           {seg.text}
         </Text>
@@ -172,9 +174,9 @@ export function parseBlocks(input: string): Block[] {
   return blocks;
 }
 
-const HEADING_COLORS = ['magenta', 'cyan', 'green', 'yellow', 'blue', 'blue'];
-
 export function Markdown({ children }: { children: string }): React.ReactElement {
+  const T = useTheme();
+  const HEADING_COLORS = [T.accent, T.secondary, T.text, T.text, T.text, T.text];
   const blocks = parseBlocks(children ?? '');
   return (
     <Box flexDirection="column">
@@ -183,7 +185,7 @@ export function Markdown({ children }: { children: string }): React.ReactElement
           case 'blank':
             return <Text key={idx}> </Text>;
           case 'hr':
-            return <Text key={idx} dimColor>{'─'.repeat(40)}</Text>;
+            return <Text key={idx} color={T.dim}>{'─'.repeat(16)}</Text>;
           case 'heading': {
             const color = HEADING_COLORS[block.level - 1] ?? 'white';
             return (
@@ -195,25 +197,26 @@ export function Markdown({ children }: { children: string }): React.ReactElement
           case 'quote':
             return (
               <Box key={idx} marginLeft={0}>
-                <Text dimColor>│ </Text>
+                <Text color={T.dim}>│ </Text>
                 <Inline text={block.text} />
               </Box>
             );
           case 'li':
             return (
               <Box key={idx} marginLeft={1 + block.indent}>
-                <Text color="cyan">{block.marker} </Text>
+                <Text color={T.secondary}>{block.marker} </Text>
                 <Inline text={block.text} />
               </Box>
             );
           case 'code':
             return (
-              <Box key={idx} flexDirection="column" marginY={0} paddingLeft={1} borderStyle="round" borderColor="gray" borderDimColor>
+              <Box key={idx} flexDirection="column" marginY={0} paddingLeft={1} borderStyle="round" borderColor={T.border}>
+                {block.lang && <Text color={T.secondary} dimColor>{block.lang}</Text>}
                 {block.lines.length === 0 ? (
                   <Text> </Text>
                 ) : (
                   block.lines.map((l, j) => (
-                    <Text key={j} color="green">{l || ' '}</Text>
+                    <Text key={j} color={T.text}>{l || ' '}</Text>
                   ))
                 )}
               </Box>

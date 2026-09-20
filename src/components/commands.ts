@@ -5,6 +5,8 @@ export interface SlashCommand {
 }
 
 export const COMMANDS: SlashCommand[] = [
+  { name: 'theme', args: '[name]', description: 'Тема оформления с предпросмотром' },
+  { name: 'motion', args: '[full|reduced|off]', description: 'Настроить анимации' },
   { name: 'provider', description: 'Провайдер, модель и ключ (в т.ч. свой)' },
   { name: 'model', args: '[name]', description: 'Сменить модель' },
   { name: 'mode', args: '[normal|accept|plan]', description: 'Режим работы' },
@@ -24,9 +26,11 @@ export function matchCommands(line: string): SlashCommand[] {
   if (!line.startsWith('/')) return [];
   const token = line.slice(1).toLowerCase();
   if (token === '') return COMMANDS;
+  if (/\s/.test(token)) return [];
 
   const starts = COMMANDS.filter((c) => c.name.startsWith(token));
-  if (starts.length > 0) return starts;
+  // Exact commands must win: /mode must not execute the /model prefix match.
+  if (starts.length > 0) return starts.sort((a, b) => Number(b.name === token) - Number(a.name === token));
 
   const contains = COMMANDS.filter((c) => c.name.includes(token));
   if (contains.length > 0) return contains;
